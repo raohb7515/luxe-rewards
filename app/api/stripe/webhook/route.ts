@@ -1,14 +1,10 @@
-// /api/stripe/webhook/route.ts
-
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import Stripe from 'stripe'
 
-export const config = {
-  api: {
-    bodyParser: false, // Stripe requires raw body
-  },
-}
+export const dynamic = "force-dynamic"; 
+export const runtime = "nodejs"; 
+export const preferredRegion = "auto";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2023-10-16',
@@ -44,7 +40,6 @@ export async function POST(req: Request) {
         return NextResponse.json({ received: true })
       }
 
-      // 4. Fetch order and product
       const order = await prisma.order.findUnique({ where: { id: orderId } })
       if (!order) {
         console.error('Order not found for ID:', orderId)
@@ -59,7 +54,6 @@ export async function POST(req: Request) {
 
       if (product.stock < 1) {
         console.warn(`Product ${product.id} out of stock`)
-        // optionally, mark order as failed/cancelled
         await prisma.order.update({
           where: { id: orderId },
           data: { status: 'failed' },
@@ -67,13 +61,11 @@ export async function POST(req: Request) {
         return NextResponse.json({ received: true })
       }
 
-      // 5. Update order status to completed
       await prisma.order.update({
         where: { id: orderId },
-        data: { status: 'paid' }, // or 'completed'
+        data: { status: 'paid' },
       })
 
-      // 6. Reduce product stock
       await prisma.product.update({
         where: { id: product.id },
         data: { stock: { decrement: 1 } },
