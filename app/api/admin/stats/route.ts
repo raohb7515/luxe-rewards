@@ -1,5 +1,7 @@
 export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
+// export const runtime = "nodejs";  // try commenting this out
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
@@ -30,6 +32,7 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
+    console.error('Error in /api/admin/stats:', error)
     return NextResponse.json(
       { success: false, error: 'Failed to fetch stats' },
       { status: 500 }
