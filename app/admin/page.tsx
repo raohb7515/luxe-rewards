@@ -1,191 +1,81 @@
-'use client'
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { verifyToken } from "@/lib/auth"; // path correct
+import Link from "next/link";
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import toast from 'react-hot-toast'
+export default async function AdminDashboard() {
+  // 1️⃣ Get JWT token from cookies
+  const token = cookies().get("token")?.value;
+  if (!token) return redirect("/login");
 
-interface Stats {
-  totalUsers: number
-  totalProducts: number
-  totalOrders: number
-  totalRevenue: number
-}
+  // 2️⃣ Verify token safely
+  const user = verifyToken(token);
+  if (!user || !user.isAdmin) return redirect("/login"); // redirect if not admin
 
-export default function AdminDashboard() {
-  const router = useRouter()
-  const [stats, setStats] = useState<Stats | null>(null)
-  const [loading, setLoading] = useState(true)
+  // 3️⃣ Fetch admin stats
+  const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/admin/stats`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
 
-  useEffect(() => {
-    const token = localStorage.getItem('token')
-    if (!token) {
-      router.push('/login')
-      return
-    }
+  const data = await res.json();
+  const stats = data?.stats || {};
 
-    fetch('/api/auth/me', {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (!data.success || !data.user.isAdmin) {
-          toast.error('Admin access required')
-          router.push('/')
-          return
-        }
-      })
-      .catch(() => {
-        router.push('/login')
-      })
-
-    fetch('/api/admin/stats', {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success) {
-          setStats(data.stats)
-        }
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
-  }, [router])
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-      </div>
-    )
-  }
-
+  // 4️⃣ Render dashboard
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="bg-white shadow">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-            <Link
-              href="/"
-              className="text-primary-600 hover:text-primary-700 font-semibold"
-            >
-              Back to Site
-            </Link>
-          </div>
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+          <Link href="/" className="text-primary-600 hover:text-primary-700 font-semibold">
+            Back to Site
+          </Link>
         </div>
       </div>
 
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-gray-600 text-sm font-medium mb-2">Total Users</h3>
-            <p className="text-3xl font-bold text-primary-600">
-              {stats?.totalUsers || 0}
-            </p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-gray-600 text-sm font-medium mb-2">Total Products</h3>
-            <p className="text-3xl font-bold text-green-600">
-              {stats?.totalProducts || 0}
-            </p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-gray-600 text-sm font-medium mb-2">Total Orders</h3>
-            <p className="text-3xl font-bold text-blue-600">
-              {stats?.totalOrders || 0}
-            </p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-gray-600 text-sm font-medium mb-2">Total Revenue</h3>
-            <p className="text-3xl font-bold text-purple-600">
-              ${stats?.totalRevenue.toFixed(2) || '0.00'}
-            </p>
-          </div>
+          <StatCard title="Total Users" value={stats.totalUsers || 0} color="text-primary-600" />
+          <StatCard title="Total Products" value={stats.totalProducts || 0} color="text-green-600" />
+          <StatCard title="Total Orders" value={stats.totalOrders || 0} color="text-blue-600" />
+          <StatCard
+            title="Total Revenue"
+            value={`$${(stats.totalRevenue ?? 0).toFixed(2)}`}
+            color="text-purple-600"
+          />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Link
-            href="/admin/products/add"
-            className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-semibold mb-2">Add Product</h3>
-                <p className="text-gray-600 text-sm">Create a new product listing</p>
-              </div>
-              <svg
-                className="w-8 h-8 text-primary-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-            </div>
-          </Link>
-
-          <Link
-            href="/admin/news/add"
-            className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-semibold mb-2">Add News</h3>
-                <p className="text-gray-600 text-sm">Publish a new news article</p>
-              </div>
-              <svg
-                className="w-8 h-8 text-primary-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-            </div>
-          </Link>
-
-          <Link
-            href="/admin/users"
-            className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-semibold mb-2">View Users</h3>
-                <p className="text-gray-600 text-sm">Manage user accounts</p>
-              </div>
-              <svg
-                className="w-8 h-8 text-primary-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-                />
-              </svg>
-            </div>
-          </Link>
+          <ActionCard href="/admin/products/add" title="Add Product" desc="Create a new product listing" />
+          <ActionCard href="/admin/news/add" title="Add News" desc="Publish a new news article" />
+          <ActionCard href="/admin/users" title="View Users" desc="Manage user accounts" />
         </div>
       </div>
     </div>
-  )
+  );
 }
 
+function StatCard({ title, value, color }: { title: string; value: string | number; color: string }) {
+  return (
+    <div className="bg-white rounded-lg shadow p-6">
+      <h3 className="text-gray-600 text-sm font-medium mb-2">{title}</h3>
+      <p className={`text-3xl font-bold ${color}`}>{value}</p>
+    </div>
+  );
+}
+
+function ActionCard({ href, title, desc }: { href: string; title: string; desc: string }) {
+  return (
+    <Link href={href} className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-xl font-semibold mb-2">{title}</h3>
+          <p className="text-gray-600 text-sm">{desc}</p>
+        </div>
+        <svg className="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+        </svg>
+      </div>
+    </Link>
+  );
+}

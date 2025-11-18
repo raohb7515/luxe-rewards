@@ -1,14 +1,16 @@
+// /api/auth/me/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/middleware'
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await requireAuth(request)
-    if (user instanceof NextResponse) return user
+    const userPayload = await requireAuth(request)
+    if (userPayload instanceof NextResponse) return userPayload
 
+    // prisma me findUnique by userId
     const userData = await prisma.user.findUnique({
-      where: { id: user.userId },
+      where: { id: userPayload.userId },
       select: {
         id: true,
         name: true,
@@ -30,10 +32,10 @@ export async function GET(request: NextRequest) {
       user: userData,
     })
   } catch (error) {
+    console.error(error)
     return NextResponse.json(
       { success: false, error: 'Failed to fetch user' },
       { status: 500 }
     )
   }
 }
-
