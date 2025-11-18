@@ -102,3 +102,14 @@ model ContactMessage {
   message   String
   createdAt DateTime @default(now())
 }
+
+
+model oTP {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  otp       String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+
