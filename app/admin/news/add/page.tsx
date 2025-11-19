@@ -18,20 +18,13 @@ export default function AddNewsPage() {
     e.preventDefault()
     setLoading(true)
 
-    const token = localStorage.getItem('token')
-    if (!token) {
-      toast.error('Please login')
-      router.push('/login')
-      return
-    }
-
     try {
-      const response = await fetch('/api/news/add', {
+      const response = await fetch('/api/admin/news/add', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
+        credentials: 'include', // ensure HTTP-only cookie is sent
         body: JSON.stringify({
           title: formData.title,
           content: formData.content,
@@ -45,6 +38,11 @@ export default function AddNewsPage() {
         toast.success('News added successfully!')
         router.push('/admin')
       } else {
+        if (response.status === 401 || response.status === 403) {
+          toast.error('Session expired. Please login again.')
+          router.push('/login')
+          return
+        }
         toast.error(data.error || 'Failed to add news')
       }
     } catch (error) {

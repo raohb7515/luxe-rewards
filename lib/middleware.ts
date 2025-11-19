@@ -1,7 +1,24 @@
 // lib/middleware.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyToken, getTokenFromRequest, TokenPayload } from './auth'
+import { verifyToken, TokenPayload } from './auth'
 
+/**
+ * Read the JWT from either the Authorization header (Bearer) or the HTTP-only cookie.
+ */
+function getTokenFromRequest(request: NextRequest): string | null {
+  const authHeader = request.headers.get('authorization')
+  if (authHeader?.startsWith('Bearer ')) {
+    return authHeader.substring(7)
+  }
+
+  const cookieToken = request.cookies.get('token')?.value
+  return cookieToken ?? null
+}
+
+/**
+ * Ensures a request is authenticated by validating the JWT.
+ * Returns the decoded TokenPayload or a 401 JSON response.
+ */
 export async function requireAuth(
   request: NextRequest
 ): Promise<TokenPayload | NextResponse> {
@@ -12,14 +29,16 @@ export async function requireAuth(
   }
 
   const payload = verifyToken(token)
-
-  if (!payload || !payload.userId) { // yahan userId hona chahiye
-    return NextResponse.json({ error: 'Invalid token payload' }, { status: 401 })
+  if (!payload || !payload.userId) {
+    return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 })
   }
 
   return payload
 }
 
+/**
+ * Extends requireAuth to make sure the caller is an admin.
+ */
 export async function requireAdmin(
   request: NextRequest
 ): Promise<TokenPayload | NextResponse> {

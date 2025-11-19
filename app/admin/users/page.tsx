@@ -23,42 +23,36 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem('token')
-    if (!token) {
-      router.push('/login')
-      return
-    }
-
+    // Check admin status via API
     fetch('/api/auth/me', {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      credentials: 'include', // ensure HTTP-only cookie is sent
     })
       .then((res) => res.json())
       .then((data) => {
-        if (!data.success || !data.user.isAdmin) {
+        if (!data.success || !data.user?.isAdmin) {
           toast.error('Admin access required')
-          router.push('/')
+          router.push('/login')
           return
         }
+        // Fetch users list
+        return fetch('/api/admin/users', {
+          credentials: 'include', // ensure HTTP-only cookie is sent
+        })
       })
-      .catch(() => {
-        router.push('/login')
+      .then((res) => {
+        if (!res) return
+        return res.json()
       })
-
-    fetch('/api/admin/users', {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-      .then((res) => res.json())
       .then((data) => {
-        if (data.success) {
+        if (data?.success) {
           setUsers(data.users)
         }
         setLoading(false)
       })
-      .catch(() => setLoading(false))
+      .catch(() => {
+        setLoading(false)
+        router.push('/login')
+      })
   }, [router])
 
   if (loading) {

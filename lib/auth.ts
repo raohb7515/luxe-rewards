@@ -31,10 +31,17 @@ export function verifyToken(token: string): TokenPayload | null {
 }
 
 export function getTokenFromRequest(request: NextRequest): string | null {
-  const authHeader = request.headers.get('authorization')
-  if (authHeader?.startsWith('Bearer ')) {
-    return authHeader.substring(7)
+  // 1️⃣ Read from Authorization header
+  const authHeader = request.headers.get("authorization");
+  if (authHeader?.startsWith("Bearer ")) {
+    return authHeader.substring(7);
   }
-  return null
+
+  // 2️⃣ Read from cookies (your frontend uses cookie token)
+  const cookieToken = request.cookies.get("token")?.value;
+  if (cookieToken) return cookieToken;
+
+  return null;
 }
+
 

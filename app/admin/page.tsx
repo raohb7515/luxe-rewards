@@ -1,50 +1,110 @@
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import { verifyToken } from "@/lib/auth"; // path correct
+'use client'
+
+// app/admin/page.tsx
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
-export default async function AdminDashboard() {
-  // 1️⃣ Get JWT token from cookies
-  const token = cookies().get("token")?.value;
-  if (!token) return redirect("/login");
+type AdminStats = {
+  totalUsers: number
+  totalProducts: number
+  totalOrders: number
+  totalRevenue: number
+}
 
-  // 2️⃣ Verify token safely
-  const user = verifyToken(token);
-  if (!user || !user.isAdmin) return redirect("/login"); // redirect if not admin
+const defaultStats: AdminStats = {
+  totalUsers: 0,
+  totalProducts: 0,
+  totalOrders: 0,
+  totalRevenue: 0,
+}
 
-  // 3️⃣ Fetch admin stats
-  const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/admin/stats`, {
-    headers: { Authorization: `Bearer ${token}` },
-    cache: "no-store",
-  });
+export default function AdminDashboard() {
+  const [stats, setStats] = useState<AdminStats>(defaultStats)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const data = await res.json();
-  const stats = data?.stats || {};
+  useEffect(() => {
+    let isMounted = true
 
-  // 4️⃣ Render dashboard
+    async function fetchStats() {
+      try {
+        const res = await fetch("/api/admin/stats", {
+          cache: "no-store",
+          credentials: "include", // include cookies for auth
+        })
+
+        if (!res.ok) {
+          throw new Error("Failed to fetch stats")
+        }
+
+        const data = await res.json()
+        if (isMounted) {
+          setStats({
+            totalUsers: data?.stats?.totalUsers ?? 0,
+            totalProducts: data?.stats?.totalProducts ?? 0,
+            totalOrders: data?.stats?.totalOrders ?? 0,
+            totalRevenue: data?.stats?.totalRevenue ?? 0,
+          })
+        }
+      } catch (err) {
+        console.error("Failed to load admin stats", err)
+        if (isMounted) {
+          setError("Unable to load stats right now.")
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false)
+        }
+      }
+    }
+
+    fetchStats()
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Header */}
       <div className="bg-white shadow">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-          <Link href="/" className="text-primary-600 hover:text-primary-700 font-semibold">
+          <Link
+            href="/"
+            className="text-primary-600 hover:text-primary-700 font-semibold"
+          >
             Back to Site
           </Link>
         </div>
       </div>
 
       <div className="container mx-auto px-4 py-8">
+        {loading && (
+          <div className="bg-yellow-50 text-yellow-800 border border-yellow-200 rounded-lg p-4 mb-6">
+            Loading latest stats...
+          </div>
+        )}
+
+        {error && (
+          <div className="bg-red-50 text-red-700 border border-red-200 rounded-lg p-4 mb-6">
+            {error}
+          </div>
+        )}
+
+        {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <StatCard title="Total Users" value={stats.totalUsers || 0} color="text-primary-600" />
-          <StatCard title="Total Products" value={stats.totalProducts || 0} color="text-green-600" />
-          <StatCard title="Total Orders" value={stats.totalOrders || 0} color="text-blue-600" />
+          <StatCard title="Total Users" value={stats.totalUsers} color="text-primary-600" />
+          <StatCard title="Total Products" value={stats.totalProducts} color="text-green-600" />
+          <StatCard title="Total Orders" value={stats.totalOrders} color="text-blue-600" />
           <StatCard
             title="Total Revenue"
-            value={`$${(stats.totalRevenue ?? 0).toFixed(2)}`}
+            value={`$${stats.totalRevenue.toFixed(2)}`}
             color="text-purple-600"
           />
         </div>
 
+        {/* Actions */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <ActionCard href="/admin/products/add" title="Add Product" desc="Create a new product listing" />
           <ActionCard href="/admin/news/add" title="Add News" desc="Publish a new news article" />

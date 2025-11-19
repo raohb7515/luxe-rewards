@@ -20,20 +20,13 @@ export default function AddProductPage() {
     e.preventDefault()
     setLoading(true)
 
-    const token = localStorage.getItem('token')
-    if (!token) {
-      toast.error('Please login')
-      router.push('/login')
-      return
-    }
-
     try {
-      const response = await fetch('/api/products/add', {
+      const response = await fetch('/api/admin/products/add', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
+        credentials: 'include', // ensure HTTP-only cookie is sent
         body: JSON.stringify({
           name: formData.name,
           description: formData.description,
@@ -49,6 +42,11 @@ export default function AddProductPage() {
         toast.success('Product added successfully!')
         router.push('/admin')
       } else {
+        if (response.status === 401 || response.status === 403) {
+          toast.error('Session expired. Please login again.')
+          router.push('/login')
+          return
+        }
         toast.error(data.error || 'Failed to add product')
       }
     } catch (error) {
